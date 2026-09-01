@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PetLife | Saúde e Vacinação</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            light: '#d1fae5',
+                            DEFAULT: '#10b981',
+                            dark: '#047857',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Leaflet CSS for Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Custom Styles -->
+    <style>
+        html { scroll-behavior: smooth; }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+        }
+        #map {
+            z-index: 10;
+        }
+        /* Modal fade transition */
+        .modal-active {
+            display: flex !important;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 glass-effect border-b border-gray-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-paw text-brand text-2xl"></i>
+                    <span class="font-bold text-xl text-gray-900 tracking-tight">PetLife</span>
+                </div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#home" class="text-gray-600 hover:text-brand font-medium transition">Início</a>
+                    <a href="#meus-pets" class="text-gray-600 hover:text-brand font-medium transition">Meus Pets</a>
+                    <a href="#mapa-vacinacao" class="text-gray-600 hover:text-brand font-medium transition">Postos de Vacinação</a>
+                </div>
+                <!-- Mobile menu button (visual only for simplicity) -->
+                <div class="md:hidden flex items-center">
+                    <button class="text-gray-600 hover:text-brand focus:outline-none">
+                        <i class="fa-solid fa-bars text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="pt-24 pb-12 md:pt-32 md:pb-24 bg-brand-light">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 mb-6">
+                A saúde do seu melhor amigo <br class="hidden md:block">
+                <span class="text-brand">sempre em dia.</span>
+            </h1>
+            <p class="text-lg md:text-xl text-gray-700 max-w-2xl mx-auto mb-8">
+                Gerencie as vacinas dos seus pets, acesse a carteira digital via QR Code e encontre os postos de vacinação mais próximos de você em tempo real.
+            </p>
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <a href="#meus-pets" class="bg-brand hover:bg-brand-dark text-white px-8 py-3 rounded-full font-semibold shadow-lg transition transform hover:-translate-y-1">
+                    Ver Meus Pets
+                </a>
+                <a href="#mapa-vacinacao" class="bg-white hover:bg-gray-50 text-brand border-2 border-brand px-8 py-3 rounded-full font-semibold shadow-md transition transform hover:-translate-y-1">
+                    Encontrar Postos
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Meus Pets Section -->
+    <section id="meus-pets" class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-gray-900 mb-4">Meus Pets</h2>
+                <p class="text-gray-600">Acesse a carteira de vacinação digital de cada animalzinho.</p>
+            </div>
+
+            <!-- Pet Grid -->
+            <div id="pets-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Pets will be injected here via JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Map Section -->
+    <section id="mapa-vacinacao" class="py-16 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-4">Locais de Vacinação Próximos</h2>
+                <p class="text-gray-600 mb-4">Permita o acesso à sua localização para vermos as clínicas e postos perto de você.</p>
+                <button id="btn-locate" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-medium shadow transition inline-flex items-center gap-2">
+                    <i class="fa-solid fa-location-crosshairs"></i> Encontrar Minha Localização
+                </button>
+            </div>
+
+            <!-- Map Container -->
+            <div class="bg-white p-4 rounded-2xl shadow-xl border border-gray-100">
+                <div id="map" class="w-full h-[500px] rounded-xl border border-gray-200"></div>
+                <div id="map-status" class="mt-4 text-sm text-center text-gray-500">
+                    Aguardando interação para buscar localização...
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-8">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <div class="flex items-center justify-center gap-2 mb-4">
+                <i class="fa-solid fa-paw text-brand text-xl"></i>
+                <span class="font-bold text-lg tracking-tight">PetLife</span>
+            </div>
+            <p class="text-gray-400 text-sm">© 2026 PetLife. Todos os direitos reservados. Proteja seus pets.</p>
+        </div>
+    </footer>
+
+    <!-- QR Code Modal -->
+    <div id="qr-modal" class="fixed inset-0 bg-black/60 z-[100] hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700">
+                <i class="fa-solid fa-xmark text-2xl"></i>
+            </button>
+            
+            <div class="text-center">
+                <h3 id="modal-pet-name" class="text-2xl font-bold text-gray-900 mb-1">Nome do Pet</h3>
+                <p class="text-sm text-gray-500 mb-6">ID: <span id="modal-pet-id" class="font-mono"></span></p>
+                
+                <!-- QR Code Container -->
+                <div class="flex justify-center bg-gray-50 p-6 rounded-xl border border-gray-200 mb-6">
+                    <div id="qrcode"></div>
+                </div>
+
+                <div class="bg-brand-light text-brand-dark p-4 rounded-lg text-sm text-left mb-6">
+                    <p><strong><i class="fa-solid fa-syringe mr-2"></i>Status:</strong> Vacinação em Dia</p>
+                    <p class="mt-2"><strong>Próxima Vacina (V10):</strong> <span id="modal-pet-next"></span></p>
+                </div>
+
+                <p class="text-xs text-gray-500">Mostre este QR Code no posto de atendimento para acessar o histórico completo do pet.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- QRCode JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <script>
+        // --- 1. PET DATA & UI ---
+        const pets = [
+            { 
+                id: 'PET-84920', 
+                name: 'Bolinha', 
+                species: 'Cachorro', 
+                breed: 'Golden Retriever', 
+                nextVaccine: '15/10/2026', 
+                photo: 'https://images.unsplash.com/photo-1552053831-71594a27632d?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' 
+            },
+            { 
+                id: 'PET-23114', 
+                name: 'Mingau', 
+                species: 'Gato', 
+                breed: 'Siamês', 
+                nextVaccine: '02/11/2026', 
+                photo: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' 
+            },
+            { 
+                id: 'PET-55912', 
+                name: 'Thor', 
+                species: 'Cachorro', 
+                breed: 'Bulldog Francês', 
+                nextVaccine: '20/09/2026', 
+                photo: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' 
+            }
+        ];
+
+        const petsContainer = document.getElementById('pets-container');
+        
+        function renderPets() {
+            pets.forEach(pet => {
+                const card = document.createElement('div');
+                card.className = 'bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-shadow duration-300';
+                card.innerHTML = `
+                    <div class="flex items-center gap-4 mb-4">
+                        <img src="${pet.photo}" alt="${pet.name}" class="w-16 h-16 rounded-full object-cover border-2 border-brand">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900">${pet.name}</h3>
+                            <p class="text-sm text-gray-500">${pet.species} • ${pet.breed}</p>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 mb-4 text-sm">
+                        <span class="text-gray-600 block mb-1">Próxima Vacina:</span>
+                        <span class="font-semibold text-gray-900"><i class="fa-regular fa-calendar text-brand mr-1"></i> ${pet.nextVaccine}</span>
+                    </div>
+                    <button onclick="openModal('${pet.id}')" class="w-full bg-brand/10 text-brand hover:bg-brand hover:text-white border border-brand/20 font-semibold py-2 px-4 rounded-xl transition duration-200 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-qrcode"></i> Carteira Digital
+                    </button>
+                `;
+                petsContainer.appendChild(card);
+            });
+        }
+
+        // --- 2. QR CODE MODAL LOGIC ---
+        const modal = document.getElementById('qr-modal');
+        const qrContainer = document.getElementById('qrcode');
+        let qrcodeInstance = null;
+
+        function openModal(petId) {
+            const pet = pets.find(p => p.id === petId);
+            if(!pet) return;
+
+            document.getElementById('modal-pet-name').innerText = pet.name;
+            document.getElementById('modal-pet-id').innerText = pet.id;
+            document.getElementById('modal-pet-next').innerText = pet.nextVaccine;
+
+            // Clear previous QR code
+            qrContainer.innerHTML = '';
+            
+            // Generate new QR code containing a mock URL/Data for the pet
+            const qrData = `https://petlife.app/carteira/${pet.id}`;
+            qrcodeInstance = new QRCode(qrContainer, {
+                text: qrData,
+                width: 180,
+                height: 180,
+                colorDark : "#111827",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            modal.classList.add('modal-active');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+
+        function closeModal() {
+            modal.classList.remove('modal-active');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close modal when clicking outside
+        modal.addEventListener('click', (e) => {
+            if(e.target === modal) closeModal();
+        });
+
+        // --- 3. MAP & GEOLOCATION LOGIC ---
+        let map;
+        let userMarker;
+        let clinicMarkers = [];
+
+        // Initial Map Setup (Centered on SP by default)
+        function initMap() {
+            const defaultCoords = [-23.5505, -46.6333]; // São Paulo, BR
+            
+            map = L.map('map').setView(defaultCoords, 13);
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        // Generate fake clinics near user location
+        function generateNearbyClinics(lat, lng) {
+            // Remove old clinics
+            clinicMarkers.forEach(m => map.removeLayer(m));
+            clinicMarkers = [];
+
+            const clinics = [
+                { name: "PetLife - Unidade Centro", latOffset: 0.005, lngOffset: 0.005, vaccines: "Antirrábica, V10, V8" },
+                { name: "Clínica Vida Animal", latOffset: -0.008, lngOffset: 0.002, vaccines: "Todas as vacinas disponíveis" },
+                { name: "Posto Municipal de Zoonoses", latOffset: 0.002, lngOffset: -0.010, vaccines: "Campanha Antirrábica Gratuita" }
+            ];
+
+            const clinicIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="bg-white border-2 border-brand text-brand rounded-full w-8 h-8 flex items-center justify-center shadow-md"><i class="fa-solid fa-house-medical"></i></div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+
+            clinics.forEach(clinic => {
+                const cLat = lat + clinic.latOffset;
+                const cLng = lng + clinic.lngOffset;
+                
+                const marker = L.marker([cLat, cLng], { icon: clinicIcon })
+                    .addTo(map)
+                    .bindPopup(`
+                        <div class="text-center">
+                            <strong class="text-gray-900 text-sm block mb-1">${clinic.name}</strong>
+                            <span class="text-xs text-gray-600 block mb-2">${clinic.vaccines}</span>
+                            <a href="https://www.google.com/maps/dir/?api=1&destination=${cLat},${cLng}" target="_blank" class="bg-brand text-white text-xs px-3 py-1 rounded inline-block">Traçar Rota</a>
+                        </div>
+                    `);
+                
+                clinicMarkers.push(marker);
+            });
+        }
+
+        // Handle Geolocation Request
+        document.getElementById('btn-locate').addEventListener('click', () => {
+            const statusText = document.getElementById('map-status');
+            
+            if (!navigator.geolocation) {
+                statusText.innerText = "Seu navegador não suporta geolocalização.";
+                return;
+            }
+
+            statusText.innerText = "Buscando sua localização...";
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    
+                    // Update Map View
+                    map.setView([latitude, longitude], 14);
+
+                    // Add/Move User Marker
+                    const userIcon = L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div class="bg-blue-600 border-2 border-white text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg"><i class="fa-solid fa-street-view"></i></div>`,
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    });
+
+                    if (userMarker) {
+                        map.removeLayer(userMarker);
+                    }
+                    
+                    userMarker = L.marker([latitude, longitude], { icon: userIcon })
+                        .addTo(map)
+                        .bindPopup("<b>Você está aqui!</b>")
+                        .openPopup();
+
+                    statusText.innerText = "Localização encontrada! Mostrando postos próximos.";
+                    
+                    // Generate Mock Clinics around user
+                    generateNearbyClinics(latitude, longitude);
+                },
+                (error) => {
+                    console.error(error);
+                    statusText.innerHTML = "<span class='text-red-500'>Permissão negada ou erro ao obter localização. Mostrando mapa padrão.</span>";
+                },
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+            );
+        });
+
+        // Initialize on load
+        window.onload = () => {
+            renderPets();
+            initMap();
+        };
+    </script>
+</body>
+</html>
